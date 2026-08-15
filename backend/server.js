@@ -5,115 +5,73 @@ const path = require("path");
 
 const app = express();
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
+// Port for deployment
+const PORT = process.env.PORT || 5001;
 
-// ===============================
-// HOME ROUTE
-// ===============================
+// Health check
 app.get("/", (req, res) => {
     res.json({
-        message: "Credit Card Fraud Detection API is running"
+        message: "FraudGuard Credit Card Fraud Detection API is running"
     });
 });
 
-
-// ===============================
-// PREDICTION ROUTE
-// ===============================
+// Fraud prediction
 app.post("/predict", (req, res) => {
+    const transaction = req.body;
 
-    console.log("Prediction request received");
+    if (!transaction || Object.keys(transaction).length === 0) {
+        return res.status(400).json({
+            error: "Transaction data is required"
+        });
+    }
 
-    // Python executable inside ML virtual environment
-    const pythonPath = path.join(
-        __dirname,
-        "..",
-        "ml",
-        "venv",
-        "bin",
-        "python3"
-    );
+    const pythonScript = path.join(__dirname, "..", "ml", "predict.py");
 
-    // Python prediction file
-    const scriptPath = path.join(
-        __dirname,
-        "..",
-        "ml",
-        "predict.py"
-    );
+    const pythonProcess = spawn("python3", [
+        pythonScript,
+        JSON.stringify(transaction)
+    ]);
 
-    console.log("Python:", pythonPath);
-    console.log("Script:", scriptPath);
+    let output = "";
+    let errorOutput = "";
 
-    const python = spawn(pythonPath, [scriptPath]);
-
-    let result = "";
-    let error = "";
-
-    // Send frontend data to Python
-    python.stdin.write(JSON.stringify(req.body));
-    python.stdin.end();
-
-
-    // Receive Python output
-    python.stdout.on("data", (data) => {
-        result += data.toString();
+    pythonProcess.stdout.on("data", (data) => {
+        output += data.toString();
     });
 
-
-    // Receive Python errors
-    python.stderr.on("data", (data) => {
-        error += data.toString();
-        console.error("Python Error:", data.toString());
+    pythonProcess.stderr.on("data", (data) => {
+        errorOutput += data.toString();
     });
 
-
-    // Python process finished
-    python.on("close", (code) => {
-
-        console.log("Python process exited with code:", code);
-
+    pythonProcess.on("close", (code) => {
         if (code !== 0) {
-            console.error("ML prediction failed:", error);
+            console.error("Python error:", errorOutput);
 
             return res.status(500).json({
-                error: "ML prediction failed",
-                details: error
+                error: "Fraud prediction failed",
+                details: errorOutput
             });
         }
 
         try {
+            const result = JSON.parse(output);
 
-            const prediction = JSON.parse(result);
-
-            console.log("Prediction:", prediction);
-
-            res.json(prediction);
-
-        } catch (err) {
-
-            console.error("Invalid ML response:", result);
+            res.json(result);
+        } catch (error) {
+            console.error("Invalid Python response:", output);
 
             res.status(500).json({
-                error: "Invalid ML response",
-                details: result
+                error: "Invalid prediction response"
             });
         }
     });
 });
 
-
-// ===============================
-// SERVER
-// ===============================
-const PORT = process.env.PORT || 5001;
-
+// Start server
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`FraudGuard backend running on port ${PORT}`);
-});
-
-app.listen(PORT, () => {
-    console.log(`Backend running on http://localhost:${PORT}`);
+    console.log(`FraudGuard backend running on port ${5001}`);
 });
