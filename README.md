@@ -8,7 +8,7 @@ The main goal of this project is to show how a machine learning model can be con
 
 ## Live Demo
 
-- Frontend: https://fraudguard-frontend-qpgm.onrender.com
+- Frontend:https://fraudguard-frontend-qpqm.onrender.com/
 - Backend API: https://fraudguard-g3w1.onrender.com
 
 > Note: Render free services may take a few seconds to wake up after being inactive.
